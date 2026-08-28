@@ -13,7 +13,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageFilter
 TIMEZONE = ZoneInfo("Asia/Riyadh")
 EVENT_NAME = "DOORS EVENT"
 # 2026/8/28 - الساعة 10:00 مساءً بتوقيت السعودية
-TARGET_TIME = datetime(2026, 8, 28, 22, 0, 0, tzinfo=TIMEZONE)
+TARGET_TIME = datetime(2026, 8, 28, 21, 0, 0, tzinfo=TIMEZONE)
 
 # الرتبة التي يتم منشنها عند بدء الحدث
 ROLE_MENTION_ID = 1520078137902497922
