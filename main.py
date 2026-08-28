@@ -179,7 +179,7 @@ def compute_remaining():
     return days, hours, minutes, seconds, False
 
 
-@tasks.loop(seconds=2)
+@tasks.loop(seconds=5)
 async def update_timers():
     to_remove = []
     for channel_id, data in active_timers.items():
