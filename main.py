@@ -46,15 +46,16 @@ FONT_REG_PATH = os.path.join(BASE_DIR, "fonts", "DejaVuSans.ttf")
 
 W, H = 1400, 560
 
-# ثيم بطولة/تختيم: أحمر ناري + أسود + لمسة ذهبية
-RED = (214, 40, 57)
-RED_LIGHT = (255, 92, 92)
-GOLD = (240, 180, 80)
-WHITE = (248, 248, 250)
-BG_TOP = (10, 6, 8)
-BG_BOTTOM = (26, 10, 14)
-CARD_BG = (18, 10, 12)
-CARD_BORDER = (90, 30, 30)
+# ثيم غامق/غامض (أرشيف مظلم): بنفسجي عميق + توهج فيروزي + لمسة ذهبية عتيقة
+RED = (110, 60, 200)          # يُستخدم للتوهج والإطارات (بنفسجي بدل الأحمر)
+RED_LIGHT = (150, 110, 235)
+GOLD = (200, 170, 110)
+GLOW = (70, 230, 200)         # لون توهج الأرقام (فيروزي مخيف)
+WHITE = (235, 235, 240)
+BG_TOP = (4, 4, 8)
+BG_BOTTOM = (14, 8, 20)
+CARD_BG = (12, 8, 16)
+CARD_BORDER = (55, 35, 80)
 
 
 def vertical_gradient(size, top, bottom):
@@ -87,6 +88,46 @@ def draw_centered_text(draw, xy, text, font, fill, tracking=0):
         cx += draw.textlength(ch, font=font) + tracking
 
 
+def draw_monster_silhouette(base, cx, cy, scale=1.0, flip=False):
+    """
+    وحش أصلي مرسوم بالكامل (أشكال بسيطة + توهج) بدل استخدام رسمة لعبة محمية بحقوق نشر.
+    شكل غامض بعيون فيروزية متوهجة يناسب الجو المظلم للتصميم.
+    """
+    overlay = Image.new("RGBA", base.size, (0, 0, 0, 0))
+    od = ImageDraw.Draw(overlay)
+
+    s = scale
+    body_w, body_h = 110 * s, 150 * s
+    bx0, by0 = cx - body_w / 2, cy - body_h
+    bx1, by1 = cx + body_w / 2, cy
+
+    od.ellipse((bx0, by0, bx1, by1), fill=(6, 4, 10, 235))
+    head_r = 40 * s
+    od.ellipse((cx - head_r, by0 - head_r * 1.3, cx + head_r, by0 + head_r * 0.4), fill=(6, 4, 10, 235))
+
+    for i in range(4):
+        ax = bx0 + 12 * s + i * (body_w - 24 * s) / 3
+        od.line([(ax, by1 - 10 * s), (ax + (10 if not flip else -10) * s, by1 + 30 * s)],
+                 fill=(4, 3, 8, 220), width=int(6 * s))
+
+    eye_y = by0 - head_r * 0.55
+    eye_dx = 14 * s
+    for ex in (cx - eye_dx, cx + eye_dx):
+        od.ellipse((ex - 6 * s, eye_y - 4 * s, ex + 6 * s, eye_y + 4 * s), fill=GLOW + (255,))
+
+    overlay = overlay.filter(ImageFilter.GaussianBlur(1))
+    glow_layer = Image.new("RGBA", base.size, (0, 0, 0, 0))
+    gd = ImageDraw.Draw(glow_layer)
+    for ex in (cx - eye_dx, cx + eye_dx):
+        gd.ellipse((ex - 16 * s, eye_y - 14 * s, ex + 16 * s, eye_y + 14 * s), fill=GLOW + (90,))
+    glow_layer = glow_layer.filter(ImageFilter.GaussianBlur(10))
+
+    base_rgba = base.convert("RGBA")
+    base_rgba.alpha_composite(glow_layer)
+    base_rgba.alpha_composite(overlay)
+    return base_rgba.convert("RGB")
+
+
 def draw_diagonal_stripes(base, y0, y1, color, alpha=26, gap=46):
     overlay = Image.new("RGBA", base.size, (0, 0, 0, 0))
     od = ImageDraw.Draw(overlay)
@@ -103,36 +144,36 @@ def draw_diagonal_stripes(base, y0, y1, color, alpha=26, gap=46):
 def make_countdown_image(days, hours, minutes, seconds, finished=False):
     base = vertical_gradient((W, H), BG_TOP, BG_BOTTOM)
 
-    # توهج أحمر خلف العنوان (بدل الذهبي القديم)
+    # توهج بنفسجي/فيروزي غامض بدل التوهج الأحمر
     glow = Image.new("L", (W, H), 0)
     gd = ImageDraw.Draw(glow)
     gd.ellipse((W / 2 - 520, -320, W / 2 + 520, 280), fill=100)
     glow = glow.filter(ImageFilter.GaussianBlur(130))
-    red_layer = Image.new("RGB", (W, H), RED)
-    base = Image.composite(red_layer, base, glow.point(lambda p: p // 6))
+    purple_layer = Image.new("RGB", (W, H), RED)
+    base = Image.composite(purple_layer, base, glow.point(lambda p: p // 7))
 
-    # خطوط قطرية خفيفة تعطي طابع بطولة/رياضي
+    # خطوط قطرية خفيفة تعطي طابع غامض
     base = draw_diagonal_stripes(base, 0, H, RED)
+
+    # وحوش صامتة أصلية في الزوايا لإضافة جو مخيف بدون استخدام أي رسمة محمية
+    base = draw_monster_silhouette(base, 120, H - 20, scale=1.1)
+    base = draw_monster_silhouette(base, W - 120, H - 20, scale=1.1, flip=True)
 
     draw = ImageDraw.Draw(base)
 
-    # شريط علوي مزدوج بدل الخط البسيط
-    draw.line([(W / 2 - 130, 40), (W / 2 + 130, 40)], fill=GOLD, width=3)
-    draw.line([(W / 2 - 60, 48), (W / 2 + 60, 48)], fill=RED_LIGHT, width=2)
+    # شريط علوي بسيط (تم حذف اسم الحدث بالكامل من الصورة)
+    draw.line([(W / 2 - 100, 44), (W / 2 + 100, 44)], fill=GOLD, width=2)
 
-    title_font = ImageFont.truetype(FONT_BOLD_PATH, 34)
-    draw_centered_text(draw, (W / 2, 62), EVENT_NAME.upper(), title_font, WHITE, tracking=12)
-
-    subtitle_font = ImageFont.truetype(FONT_REG_PATH, 18)
-    sub_text = "TOURNAMENT IS LIVE" if finished else "COUNTDOWN TO KICKOFF"
-    draw_centered_text(draw, (W / 2, 110), sub_text, subtitle_font, GOLD, tracking=6)
+    subtitle_font = ImageFont.truetype(FONT_REG_PATH, 20)
+    sub_text = "THE ARCHIVE IS OPEN" if finished else "COUNTDOWN TO THE ARCHIVE"
+    draw_centered_text(draw, (W / 2, 66), sub_text, subtitle_font, GLOW, tracking=6)
 
     if finished:
         big_font = ImageFont.truetype(FONT_BOLD_PATH, 120)
-        draw_centered_text(draw, (W / 2, 230), "LIVE NOW", big_font, RED_LIGHT, tracking=4)
+        draw_centered_text(draw, (W / 2, 210), "LIVE NOW", big_font, GLOW, tracking=4)
 
         join_font = ImageFont.truetype(FONT_REG_PATH, 22)
-        draw_centered_text(draw, (W / 2, 380), "انضم للفريق الآن في روم التختيم", join_font, WHITE, tracking=2)
+        draw_centered_text(draw, (W / 2, 360), "هل تريدون المشاركة؟ اضغطوا الإيموجي ✅", join_font, WHITE, tracking=2)
 
         base = base.filter(ImageFilter.SMOOTH)
         buf = io.BytesIO()
@@ -147,7 +188,7 @@ def make_countdown_image(days, hours, minutes, seconds, finished=False):
     gap = 30
     total_w = card_w * 4 + gap * 3
     start_x = (W - total_w) / 2
-    top_y = 175
+    top_y = 150
 
     num_font = ImageFont.truetype(FONT_BOLD_PATH, 130)
     label_font = ImageFont.truetype(FONT_BOLD_PATH, 20)
