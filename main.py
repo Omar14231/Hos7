@@ -11,12 +11,15 @@ from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 # ================= إعدادات الحدث (عدّل هنا فقط) =================
 TIMEZONE = ZoneInfo("Asia/Riyadh")
-EVENT_NAME = "DOORS EVENT"
-# 2026/8/28 - الساعة 10:00 مساءً بتوقيت السعودية
+EVENT_NAME = "TEAM TOURNAMENT"
+# موعد بدء التختيم
 TARGET_TIME = datetime(2026, 8, 29, 21, 0, 0, tzinfo=TIMEZONE)
 
 # الرتبة التي يتم منشنها عند بدء الحدث
-ROLE_MENTION_ID = 1520078137902497922
+ROLE_MENTION_ID = 1543123745147986010
+
+# الروم الي ينضم فيه الي يبي يدخل الفريق
+JOIN_CHANNEL_LINK = "https://discord.com/channels/1474476686262145146/1540675111273635870"
 
 TOKEN = os.environ.get("DISCORD_TOKEN")
 
@@ -36,17 +39,22 @@ def keep_alive():
     t.daemon = True
     t.start()
 
-# ================= إعداد الخطوط والألوان (تصميم الصورة) =================
+# ================= إعداد الخطوط والألوان (تصميم الصورة - ثيم تختيم/بطولة) =================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FONT_BOLD_PATH = os.path.join(BASE_DIR, "fonts", "DejaVuSans-Bold.ttf")
 FONT_REG_PATH = os.path.join(BASE_DIR, "fonts", "DejaVuSans.ttf")
 
-W, H = 1400, 520
-GOLD = (212, 175, 90)
-GOLD_LIGHT = (238, 210, 140)
-WHITE = (245, 245, 248)
-BG_TOP = (8, 9, 14)
-BG_BOTTOM = (18, 20, 30)
+W, H = 1400, 560
+
+# ثيم بطولة/تختيم: أحمر ناري + أسود + لمسة ذهبية
+RED = (214, 40, 57)
+RED_LIGHT = (255, 92, 92)
+GOLD = (240, 180, 80)
+WHITE = (248, 248, 250)
+BG_TOP = (10, 6, 8)
+BG_BOTTOM = (26, 10, 14)
+CARD_BG = (18, 10, 12)
+CARD_BORDER = (90, 30, 30)
 
 
 def vertical_gradient(size, top, bottom):
@@ -79,30 +87,53 @@ def draw_centered_text(draw, xy, text, font, fill, tracking=0):
         cx += draw.textlength(ch, font=font) + tracking
 
 
+def draw_diagonal_stripes(base, y0, y1, color, alpha=26, gap=46):
+    overlay = Image.new("RGBA", base.size, (0, 0, 0, 0))
+    od = ImageDraw.Draw(overlay)
+    w, h = base.size
+    x = -h
+    while x < w + h:
+        od.line([(x, y1), (x + (y1 - y0), y0)], fill=color + (alpha,), width=10)
+        x += gap
+    base_rgba = base.convert("RGBA")
+    base_rgba.alpha_composite(overlay)
+    return base_rgba.convert("RGB")
+
+
 def make_countdown_image(days, hours, minutes, seconds, finished=False):
     base = vertical_gradient((W, H), BG_TOP, BG_BOTTOM)
 
+    # توهج أحمر خلف العنوان (بدل الذهبي القديم)
     glow = Image.new("L", (W, H), 0)
     gd = ImageDraw.Draw(glow)
-    gd.ellipse((W / 2 - 500, -300, W / 2 + 500, 300), fill=90)
-    glow = glow.filter(ImageFilter.GaussianBlur(120))
-    gold_layer = Image.new("RGB", (W, H), GOLD)
-    base = Image.composite(gold_layer, base, glow.point(lambda p: p // 6))
+    gd.ellipse((W / 2 - 520, -320, W / 2 + 520, 280), fill=100)
+    glow = glow.filter(ImageFilter.GaussianBlur(130))
+    red_layer = Image.new("RGB", (W, H), RED)
+    base = Image.composite(red_layer, base, glow.point(lambda p: p // 6))
+
+    # خطوط قطرية خفيفة تعطي طابع بطولة/رياضي
+    base = draw_diagonal_stripes(base, 0, H, RED)
 
     draw = ImageDraw.Draw(base)
 
-    draw.line([(W / 2 - 90, 46), (W / 2 + 90, 46)], fill=GOLD, width=2)
+    # شريط علوي مزدوج بدل الخط البسيط
+    draw.line([(W / 2 - 130, 40), (W / 2 + 130, 40)], fill=GOLD, width=3)
+    draw.line([(W / 2 - 60, 48), (W / 2 + 60, 48)], fill=RED_LIGHT, width=2)
 
-    title_font = ImageFont.truetype(FONT_BOLD_PATH, 30)
-    draw_centered_text(draw, (W / 2, 62), EVENT_NAME.upper(), title_font, GOLD_LIGHT, tracking=10)
+    title_font = ImageFont.truetype(FONT_BOLD_PATH, 34)
+    draw_centered_text(draw, (W / 2, 62), EVENT_NAME.upper(), title_font, WHITE, tracking=12)
 
     subtitle_font = ImageFont.truetype(FONT_REG_PATH, 18)
-    sub_text = "EVENT HAS STARTED" if finished else "COUNTDOWN TO LAUNCH"
-    draw_centered_text(draw, (W / 2, 106), sub_text, subtitle_font, (150, 150, 160), tracking=6)
+    sub_text = "TOURNAMENT IS LIVE" if finished else "COUNTDOWN TO KICKOFF"
+    draw_centered_text(draw, (W / 2, 110), sub_text, subtitle_font, GOLD, tracking=6)
 
     if finished:
-        big_font = ImageFont.truetype(FONT_BOLD_PATH, 130)
-        draw_centered_text(draw, (W / 2, 220), "LIVE NOW", big_font, GOLD_LIGHT, tracking=4)
+        big_font = ImageFont.truetype(FONT_BOLD_PATH, 120)
+        draw_centered_text(draw, (W / 2, 230), "LIVE NOW", big_font, RED_LIGHT, tracking=4)
+
+        join_font = ImageFont.truetype(FONT_REG_PATH, 22)
+        draw_centered_text(draw, (W / 2, 380), "انضم للفريق الآن في روم التختيم", join_font, WHITE, tracking=2)
+
         base = base.filter(ImageFilter.SMOOTH)
         buf = io.BytesIO()
         base.save(buf, format="PNG")
@@ -112,11 +143,11 @@ def make_countdown_image(days, hours, minutes, seconds, finished=False):
     values = [(str(days).zfill(2), "DAYS"), (str(hours).zfill(2), "HOURS"),
               (str(minutes).zfill(2), "MINUTES"), (str(seconds).zfill(2), "SECONDS")]
 
-    card_w, card_h = 280, 300
+    card_w, card_h = 280, 310
     gap = 30
     total_w = card_w * 4 + gap * 3
     start_x = (W - total_w) / 2
-    top_y = 160
+    top_y = 175
 
     num_font = ImageFont.truetype(FONT_BOLD_PATH, 130)
     label_font = ImageFont.truetype(FONT_BOLD_PATH, 20)
@@ -127,27 +158,38 @@ def make_countdown_image(days, hours, minutes, seconds, finished=False):
         y0 = top_y
         y1 = y0 + card_h
 
-        rounded_rect(draw, (x0, y0, x1, y1), 22, fill=(20, 21, 30))
-        rounded_rect(draw, (x0, y0, x1, y1), 22, outline=(60, 55, 45), width=2)
-        rounded_rect(draw, (x0 + 3, y0 + 3, x1 - 3, y1 - 3), 19, outline=(40, 38, 32), width=1)
+        rounded_rect(draw, (x0, y0, x1, y1), 24, fill=CARD_BG)
+        rounded_rect(draw, (x0, y0, x1, y1), 24, outline=RED, width=2)
+        rounded_rect(draw, (x0 + 4, y0 + 4, x1 - 4, y1 - 4), 20, outline=CARD_BORDER, width=1)
+
+        # زاوية علوية ذهبية صغيرة (طابع ميدالية/بطولة)
+        draw.line([(x0 + 20, y0 + 14), (x0 + 70, y0 + 14)], fill=GOLD, width=3)
+        draw.line([(x1 - 70, y0 + 14), (x1 - 20, y0 + 14)], fill=GOLD, width=3)
 
         cx = x0 + card_w / 2
-        draw_centered_text(draw, (cx, y0 + 55), val, num_font, WHITE)
-        draw.line([(x0 + 60, y1 - 62), (x1 - 60, y1 - 62)], fill=GOLD, width=1)
-        draw_centered_text(draw, (cx, y1 - 45), label, label_font, GOLD, tracking=6)
+        draw_centered_text(draw, (cx, y0 + 60), val, num_font, WHITE)
+        draw.line([(x0 + 60, y1 - 64), (x1 - 60, y1 - 64)], fill=RED_LIGHT, width=1)
+        draw_centered_text(draw, (cx, y1 - 46), label, label_font, GOLD, tracking=6)
 
         if i < 3:
             colon_font = ImageFont.truetype(FONT_BOLD_PATH, 60)
-            draw_centered_text(draw, (x1 + gap / 2, top_y + card_h / 2 - 40), ":", colon_font, GOLD)
+            draw_centered_text(draw, (x1 + gap / 2, top_y + card_h / 2 - 40), ":", colon_font, RED_LIGHT)
 
     footer_font = ImageFont.truetype(FONT_REG_PATH, 16)
-    draw_centered_text(draw, (W / 2, H - 40), "Doors — Next Update", footer_font, (110, 110, 120), tracking=4)
+    draw_centered_text(draw, (W / 2, H - 42), "TEAM TOURNAMENT — Next Update", footer_font, (140, 100, 100), tracking=4)
 
     base = base.filter(ImageFilter.SMOOTH)
     buf = io.BytesIO()
     base.save(buf, format="PNG")
     buf.seek(0)
     return buf
+
+
+def finished_announcement():
+    return (
+        f"<@&{ROLE_MENTION_ID}> 🏆 **{EVENT_NAME} بدأ الآن!**\n"
+        f"يلي يبي يدخل الفريق يدخل هنا 👇\n{JOIN_CHANNEL_LINK}"
+    )
 
 
 # ================= إعداد البوت =================
@@ -199,9 +241,7 @@ async def update_timers():
         if finished and not data["announced"]:
             data["announced"] = True
             try:
-                await message.channel.send(
-                    f"<@&{ROLE_MENTION_ID}> 🎉 **{EVENT_NAME} بدأ الآن!**"
-                )
+                await message.channel.send(finished_announcement())
             except discord.HTTPException:
                 pass
             to_remove.append(channel_id)
@@ -232,7 +272,7 @@ async def start_timer(ctx):
     if not finished:
         active_timers[ctx.channel.id] = {"message": msg, "announced": False}
     else:
-        await ctx.channel.send(f"<@&{ROLE_MENTION_ID}> 🎉 **{EVENT_NAME} بدأ الآن!**")
+        await ctx.channel.send(finished_announcement())
 
 
 @bot.event
